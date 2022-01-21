@@ -28,101 +28,6 @@ typedef struct process_thread_data {
 	unsigned long ip_adress;
 }ProcessThreadData;
 
-DWORD WINAPI processMessageThread(LPVOID lpParam) {
-	ProcessThreadData data = *(ProcessThreadData*)lpParam;
-	SOCKET socket = data.socket;
-	char buffer[BUFFER_SIZE];
-	int result = 0;
-	MessageType type;
-	
-	while (true) {
-
-		int result = recv(data.socket, (char*)&type, sizeof(MessageType), 0);
-		type.message_type = ntohl(type.message_type);
-
-		if (result == sizeof(MessageType)) {
-			// message type
-			char buffer[BUFFER_SIZE];
-			int messageSize = 0;
-
-			switch (type.message_type)
-			{
-			case INIT_MESSAGE:
-			{
-				// Adding client
-				UserInit init = {};
-				result = recv(socket, (char*)&init, sizeof(init), 0);
-				init.id = ntohl(init.id);
-				init.listen_port = ntohs(init.listen_port);
-
-				// Check if able to add client
-				EnterCriticalSection(&cs);
-				UserData userData = getitembyid(userList, init.id);
-				int responseRetVal = 0;
-				if (userData.id == init.id) {
-					responseRetVal = -1;
-				}
-				else {
-					userData.id = init.id;
-					userData.ip_address = data.ip_adress;
-					userData.listen_port = init.listen_port;
-					//memcpy(userData.name, init.name, strlen(init.name));
-					strcpy(userData.name, init.name);
-					userData.socket = socket;
-					insertback(&userList, userData);
-					printf("Client with id: %d username: %s successfully initializes.\n", userData.id, userData.name);
-				}
-				LeaveCriticalSection(&cs);
-
-
-				UserInitResponse response;
-				response.result = htonl(responseRetVal);
-				result = send(socket, (char*)&response, sizeof(response), 0);
-
-				break;
-			}
-			case SEND_MESSAGE:
-			{
-				// forward message to client
-				Message message = {};
-				result = recv(socket, (char*)&message, sizeof(message.messageSize) * 2, 0);
-				message.messageSize = ntohl(message.messageSize);
-				message.id = ntohl(message.id);
-
-				// receive message
-				result = recv(socket, message.message, message.messageSize, 0);
-				if (result > 0) {
-					// send message to destination
-					EnterCriticalSection(&cs);
-					UserData userData = getitembyid(userList, message.id);
-					LeaveCriticalSection(&cs);
-					if (userData.id != -1) {
-						int msgSize = sizeof(int) * 2 + message.messageSize;
-						message.id = htonl(message.id);
-						message.messageSize = htonl(message.messageSize);
-						result = send(userData.socket, (char*)&message, msgSize, 0);
-						if (result == msgSize) {
-							//return 0;
-						}
-						else {
-							return -1;
-						}
-					}
-				}
-
-				break;
-			}
-			case P2P_CONNECTION_REQUEST:
-				// send client data back
-				break;
-			default:
-				break;
-			}
-		}
-		
-	}
-	return 0;
-}
 
 int main()
 {
@@ -199,6 +104,11 @@ int main()
     printf("Server socket is set to listening mode. Waiting for new connection requests.\n");
 #pragma endregion
 	
+	unsigned long  mode = 1;
+	if (ioctlsocket(listenSocket, FIONBIO, &mode) != 0)
+		printf("ioctlsocket failed with error.");
+
+
 	while (true)
 	{
 		// set of socket descriptors
@@ -266,45 +176,190 @@ int main()
 				lastIndex++;*/
 				printf("New client request accepted. Client address: %s : %d\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
 
-				ProcessThreadData threadData = {};
-				threadData.socket = newClient;
-				threadData.ip_adress = clientAddr.sin_addr.S_un.S_addr;
-				DWORD retVal;
-				HANDLE threadHandle = CreateThread(NULL, 0, &processMessageThread, &threadData, 0, &retVal);
+				unsigned long  mode = 1;
+				if (ioctlsocket(newClient, FIONBIO, &mode) != 0)
+					printf("ioctlsocket failed with error.");
+
+
+				UserData userData = {};
+				userData.socket = newClient;
+				userData.ip_address = clientAddr.sin_addr.S_un.S_addr;
+				userData.id = -1;
+
+				EnterCriticalSection(&cs);
+				insertback(&userList, userData);
+				LeaveCriticalSection(&cs);
+				
+				//DWORD retVal;
+				//HANDLE threadHandle = CreateThread(NULL, 0, &processMessageThread, &threadData, 0, &retVal);
 			}
 		}
 		else
 		{
-			//int lenght = 0;
-			//EnterCriticalSection(&cs);
-			//lenght = length(userList);
-			//LeaveCriticalSection(&cs);
+			int lenght = 0;
+			EnterCriticalSection(&cs);
+			lenght = length(userList);
+			LeaveCriticalSection(&cs);
 
-			//for (int i = 0; i < lenght; i++)
-			//{
-			//	SOCKET clientSocket;
+			for (int i = 0; i < lenght; i++)
+			{
+				SOCKET socket;
 
-			//	EnterCriticalSection(&cs);
-			//	UserData data = getitem(userList, i);
-			//	LeaveCriticalSection(&cs);
-			//	clientSocket = data.socket;
+				char buffer[BUFFER_SIZE];
+				int result = 0;
+				MessageType type;
 
-			//	// Check if new message is received from client on position "i"
-			//	if (FD_ISSET(clientSocket, &readfds))
-			//	{
+				EnterCriticalSection(&cs);
+				UserData data = getitem(userList, i);
+				LeaveCriticalSection(&cs);
+				socket = data.socket;
 
-			//		MessageType type;
-			//		int result = recv(data.socket, (char*)&type, sizeof(MessageType), 0);
-			//		type.message_type = ntohl(type.message_type);
+				// Check if new message is received from client on position "i"
+				if (FD_ISSET(socket, &readfds))
+				{
 
-			//		ProcessThreadData threadData = {};
-			//		threadData.socket = clientSocket;
-			//		threadData.ip_adress = data.ip_address;
-			//		threadData.type = type.message_type;
-			//		DWORD retVal;
-			//		HANDLE threadHandle = CreateThread(NULL, 0, &processMessageThread, &threadData, 0, &retVal);
-			//	}
-			//}
+					int result = recv(data.socket, (char*)&type, sizeof(MessageType), 0);
+					type.message_type = ntohl(type.message_type);
+
+					if (result == sizeof(MessageType)) {
+						// message type
+						char buffer[BUFFER_SIZE];
+						int messageSize = 0;
+
+						switch (type.message_type)
+						{
+						case INIT_MESSAGE:
+						{
+
+							sockaddr_in clientAddr;
+							int clientAddrSize = sizeof(struct sockaddr_in);
+
+							// Adding client
+							UserInit init = {};
+							result = recvfrom(socket, (char*)&init, sizeof(init), 0, (SOCKADDR*)&clientAddr, &clientAddrSize);
+							init.id = ntohl(init.id);
+							init.listen_port = ntohs(init.listen_port);
+
+							// Check if able to add client
+							EnterCriticalSection(&cs);
+							UserData userData = getitembyid(userList, init.id);
+							int responseRetVal = 0;
+							if (userData.id == init.id) {
+								responseRetVal = -1;
+							}
+							else {
+								userData.id = init.id;
+								userData.listen_port = init.listen_port;
+								userData.ip_address = clientAddr.sin_addr.S_un.S_addr;
+								strcpy(userData.name, init.name);
+								userData.socket = socket;
+								setitem(&userList, i, userData);
+								printf("Client with id: %d username: %s successfully initializes.\n", userData.id, userData.name);
+							}
+							LeaveCriticalSection(&cs);
+
+
+							UserInitResponse response;
+							response.result = htonl(responseRetVal);
+							result = send(socket, (char*)&response, sizeof(response), 0);
+
+							break;
+						}
+						case SEND_MESSAGE:
+						{
+							// forward message to client
+							Message message = {};
+							result = recv(socket, (char*)&message, sizeof(message.messageSize) * 2, 0);
+							message.messageSize = ntohl(message.messageSize);
+							message.id = ntohl(message.id);
+
+							// receive message
+							result = recv(socket, message.message, message.messageSize, 0);
+							if (result > 0) {
+								// send message to destination
+								EnterCriticalSection(&cs);
+								UserData userData = getitembyid(userList, message.id);
+								LeaveCriticalSection(&cs);
+								if (userData.id != -1) {
+									int msgSize = sizeof(int) * 2 + message.messageSize;
+									message.id = htonl(message.id);
+									message.messageSize = htonl(message.messageSize);
+									result = send(userData.socket, (char*)&message, msgSize, 0);
+									if (result == msgSize) {
+										//return 0;
+									}
+									else {
+										//return -1;
+									}
+								}
+							}
+
+							break;
+						}
+						case P2P_CONNECTION_REQUEST:
+						{
+							// send client data back
+							P2PConnectionRequest request = {};
+							result = recv(socket, (char*)&request, sizeof(request), 0);
+							request.id = ntohl(request.id);
+
+							EnterCriticalSection(&cs);
+							UserData userData = getitembyid(userList, request.id);
+							LeaveCriticalSection(&cs);
+							if (userData.id != -1) {
+								P2PConnectionResponse response = {};
+								response.ip_address = htonl(userData.ip_address);
+								response.listen_port = htons(userData.listen_port);
+
+								type.message_type = htonl(P2P_CONNECTION_RESPONSE);
+								result = send(socket, (char*)&type, sizeof(type), 0);
+
+								result = send(socket, (char*)&response, sizeof(response), 0);
+								if (result == sizeof(response)) {
+									//return 0;
+								}
+								else {
+									//return -1;
+								}
+							}
+							else {
+								P2PConnectionResponse response = {};
+								response.ip_address = htonl(0);
+								response.listen_port = htons(0);
+
+								type.message_type = htonl(P2P_CONNECTION_RESPONSE);
+								result = send(socket, (char*)&type, sizeof(type), 0);
+
+								result = send(socket, (char*)&response, sizeof(response), 0);
+								if (result == sizeof(response)) {
+									//return 0;
+								}
+								else {
+									//return -1;
+								}
+							}
+
+							break;
+						}
+						default:
+							break;
+						}
+					}
+
+
+					/*MessageType type;
+					int result = recv(data.socket, (char*)&type, sizeof(MessageType), 0);
+					type.message_type = ntohl(type.message_type);
+
+					ProcessThreadData threadData = {};
+					threadData.socket = clientSocket;
+					threadData.ip_adress = data.ip_address;
+					threadData.type = type.message_type;
+					DWORD retVal;
+					HANDLE threadHandle = CreateThread(NULL, 0, &processMessageThread, &threadData, 0, &retVal);*/
+
+				}
+			}
 		}
 		FD_ZERO(&readfds);
 	}
