@@ -49,13 +49,13 @@ DWORD WINAPI processMessageThread(LPVOID lpParam) {
 			{
 			case INIT_MESSAGE:
 			{
-				// add client
+				// Adding client
 				UserInit init = {};
 				result = recv(socket, (char*)&init, sizeof(init), 0);
 				init.id = ntohl(init.id);
 				init.listen_port = ntohs(init.listen_port);
 
-				// check if able to add client
+				// Check if able to add client
 				EnterCriticalSection(&cs);
 				UserData userData = getitembyid(userList, init.id);
 				int responseRetVal = 0;
@@ -126,7 +126,7 @@ DWORD WINAPI processMessageThread(LPVOID lpParam) {
 
 int main()
 {
-
+#pragma region Connection
 	initlist(&userList);
     // Socket used for listening for new clients 
     SOCKET listenSocket = INVALID_SOCKET;
@@ -197,9 +197,8 @@ int main()
     }
 
     printf("Server socket is set to listening mode. Waiting for new connection requests.\n");
-
+#pragma endregion
 	
-
 	while (true)
 	{
 		// set of socket descriptors
@@ -310,7 +309,7 @@ int main()
 		FD_ZERO(&readfds);
 	}
 
-
+#pragma region Shutdown
     // Shutdown the connection since we're done
     iResult = shutdown(acceptedSocket, SD_BOTH);
 
@@ -329,4 +328,7 @@ int main()
 
     // Deinitialize WSA library
     WSACleanup();
+
+
+#pragma endregion
 }

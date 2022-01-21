@@ -1,22 +1,7 @@
-#define _WINSOCK_DEPRECATED_NO_WARNINGS
-#define _CRT_SECURE_NO_WARNINGS
-
-#define WIN32_LEAN_AND_MEAN
-//#define no_init_all deprecated
-
-#include <windows.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include "conio.h"
-#include <time.h>
+#pragma comment (lib, "Ws2_32.lib")
 
 #include "Structures.h"
-
-#pragma comment (lib, "Ws2_32.lib")
-#pragma comment (lib, "Mswsock.lib")
-#pragma comment (lib, "AdvApi32.lib")
+#include "UserFunctions.cpp"
 
 #define TRUE 1
 #define FALSE 0
@@ -25,98 +10,10 @@
 #define SERVER_PORT 21000
 #define BUFFER_SIZE 1024
 
-int sendInitMessage(SOCKET socket, int userId,const char* name, unsigned short listenPort) {
-	// message type
-	char buffer[BUFFER_SIZE];
-	int messageSize = 0;
-	MessageType type;
-	type.message_type = htonl(INIT_MESSAGE);
-	memcpy(buffer, &type, sizeof(type));
-	messageSize += sizeof(type);
-
-	UserInit user;
-	user.id = htonl(userId);
-	user.listen_port = htons(listenPort);
-	memcpy(user.name, name, strlen(name)+1);
-	messageSize += sizeof(user);
-	memcpy(buffer + sizeof(type), &user, sizeof(user));
-
-	int result = send(socket, buffer, messageSize, 0);
-	if (result == messageSize) {
-		printf("User init message successfully sent.\n");
-		printf("Waiting for server response...\n");
-	}
-
-	UserInitResponse response;
-	result = recv(socket, buffer, sizeof(response), 0);
-	if (result == sizeof(response)) {
-		memcpy(&response, buffer, sizeof(response));
-		response.result = ntohl(response.result);
-		if (response.result == 0) {
-			printf("User successfully initialized.\n");
-		}
-		return response.result;
-	}
-	return -1;
-}
-
-void sendMessage(SOCKET socket, char* message, int id) {
-	// message type
-	char buffer[BUFFER_SIZE];
-	int messageSize = 0;
-	MessageType type;
-	type.message_type = htonl(SEND_MESSAGE);
-	memcpy(buffer, &type, sizeof(type));
-	messageSize += sizeof(type);
-
-	Message msg;
-	memcpy(msg.message, message, strlen(message));
-	msg.messageSize = htonl(strlen(message));
-	msg.id = htonl(id);
-	memcpy(buffer + sizeof(type), &msg, sizeof(msg.messageSize)*2 + strlen(message));
-	messageSize += sizeof(msg.messageSize)*2 + strlen(message);
-	int result = send(socket, buffer, messageSize, 0);
-	if (result == messageSize) {
-		printf("Message successfully sent.\n");
-	}
-}
-
-void getP2PConnectionData(SOCKET socket, int p2pUserId) {
-	// message type
-	char buffer[BUFFER_SIZE];
-	int messageSize = 0;
-	MessageType type;
-	type.message_type = htonl(P2P_CONNECTION_REQUEST);
-	memcpy(buffer, &type, sizeof(type));
-	messageSize += sizeof(type);
-
-	P2PConnectionRequest p2pRequest;
-	p2pRequest.id = htonl(p2pUserId);
-	messageSize += sizeof(p2pRequest);
-	memcpy(buffer + sizeof(type), &p2pRequest, sizeof(p2pRequest));
-
-	int result = send(socket, buffer, messageSize, 0);
-	if (result == messageSize) {
-		printf("P2P connection request successfully sent.\n");
-	}
-}
-
-void sendMessageP2P(SOCKET socket, char* message) {
-	char buffer[BUFFER_SIZE];
-	int messageSize = 0;
-	Message msg;
-	memcpy(msg.message, message, strlen(message));
-	msg.messageSize = htonl(strlen(message));
-	memcpy(buffer, &msg, sizeof(msg.messageSize) + strlen(message));
-	messageSize += sizeof(msg.messageSize) + strlen(message);
-	int result = send(socket, buffer, messageSize, 0);
-	if (result == messageSize) {
-		printf("Message successfully sent.\n");
-	}
-}
-
 int main()
 {
+#pragma region Connection
+
 	// Socket used to communicate with server
 	SOCKET connectSocket = INVALID_SOCKET;
 
@@ -163,14 +60,14 @@ int main()
 		WSACleanup();
 		return 1;
 	}
-
 	printf("Successfully connected to server.\n");
+#pragma endregion
 
 	int userId = 0;
 	char name[100];
 	unsigned short listenPort = 0;
 	do {
-		// send init message
+		// Sending init message to server
 		printf("Enter user id: ");
 		scanf("%d", &userId);
 
@@ -287,6 +184,7 @@ int main()
 
 	} while (option >= 1 && option <= 3);
 
+#pragma region Shutdown
 	// Shutdown the connection since we're done
 	iResult = shutdown(connectSocket, SD_BOTH);
 
@@ -308,4 +206,5 @@ int main()
 	WSACleanup();
 
 	return 0;
+#pragma endregion
 }

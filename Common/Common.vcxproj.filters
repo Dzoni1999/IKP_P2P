@@ -19,6 +19,9 @@
     <Filter Include="List">
       <UniqueIdentifier>{14927f43-1b09-4007-8228-d9ae9f2e7f03}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ClientFunctions">
+      <UniqueIdentifier>{ea465df9-641b-4656-b1a8-5dee098efb0f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -33,6 +36,9 @@
     <ClInclude Include="List.h">
       <Filter>List</Filter>
     </ClInclude>
+    <ClInclude Include="UserFunctions.h">
+      <Filter>ClientFunctions</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Common.cpp">
@@ -43,6 +49,9 @@
     </ClCompile>
     <ClCompile Include="List.cpp">
       <Filter>List</Filter>
+    </ClCompile>
+    <ClCompile Include="UserFunctions.cpp">
+      <Filter>ClientFunctions</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
