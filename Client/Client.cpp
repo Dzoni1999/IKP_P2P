@@ -129,7 +129,8 @@ int main()
 						scanf("%d", &id);
 						char buffer[BUFFER_SIZE];
 						printf("Enter message: ");
-						scanf("%s", buffer);
+						fgets(buffer, BUFFER_SIZE, stdin);
+						fgets(buffer, BUFFER_SIZE, stdin);
 						sendMessage(connectSocket, buffer, id);
 					}
 					continue;
@@ -247,7 +248,8 @@ int main()
 						int id = 0;
 						char buffer[BUFFER_SIZE];
 						printf("Enter message: ");
-						scanf("%s", buffer);
+						fgets(buffer, BUFFER_SIZE, stdin);
+						fgets(buffer, sizeof(buffer), stdin);
 						sendMessage(p2pSocket, buffer, id);
 					}
 				}
