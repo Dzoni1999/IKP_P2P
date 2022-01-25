@@ -37,7 +37,7 @@ void sendMessage(SOCKET socket, char* message, int id);
 /*
  *	Function: getP2PConnectionData
  * --------------------
- *	.
+ *	Sending request from one client to another.
  *
  *	returns: /
  */
@@ -46,7 +46,7 @@ void getP2PConnectionData(SOCKET socket, int p2pUserId);
 /*
  *	Function: sendMessageP2P
  * --------------------
- *	.
+ *	Sending user message and ID to another client.
  *
  *	returns: /
  */
